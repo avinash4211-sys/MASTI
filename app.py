@@ -1,4 +1,4 @@
-# app.py (PostgreSQL version)
+# app.py (PostgreSQL version - fixed numeric crash)
 from flask import Flask, render_template, request, redirect, send_file, session
 import pandas as pd
 import os, psycopg2
@@ -78,8 +78,12 @@ def index():
     cur.execute("SELECT * FROM records ORDER BY id DESC")
     rows=cur.fetchall()
 
-    total_amount=sum(r[3] for r in rows) if rows else 0
-    totals=[sum(r[i] for r in rows) for i in range(4,8)] if rows else [0,0,0,0]
+    def num(v):
+        try: return float(v or 0)
+        except: return 0
+
+    total_amount=sum(num(r[3]) for r in rows)
+    totals=[sum(num(r[i]) for r in rows) for i in range(4,8)]
     equal= total_amount/4 if total_amount else 0
     balances=[round(t-equal,2) for t in totals]
 
@@ -129,7 +133,7 @@ def receivable():
     conn=get_conn(); cur=conn.cursor()
     cur.execute("SELECT * FROM receivable ORDER BY id DESC")
     rows=cur.fetchall()
-    total_receivable=sum(r[3] for r in rows) if rows else 0
+    total_receivable=sum(float(r[3] or 0) for r in rows)
     conn.close()
     return render_template('receivable.html', rows=rows, total_receivable=total_receivable)
 
