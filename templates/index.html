@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Partner Ledger</title>
+    <style>
+        body{font-family:Arial;background:#f5f5f5;padding:20px}
+        .box{background:white;padding:15px;border-radius:10px;width:450px}
+        input{width:100%;padding:8px;margin:5px 0}
+        button{padding:10px;background:green;color:white;border:none;width:100%}
+        table{margin-top:20px;border-collapse:collapse;width:100%;background:white}
+        th,td{border:1px solid #ccc;padding:8px;text-align:center}
+    </style>
+</head>
+<body>
+
+<h2>Partner Collection Entry</h2>
+
+<div class="box">
+<form method="POST" action="/add">
+    Date <input type="date" name="date" required>
+    Money From <input type="text" name="from" required>
+    Total Amount <input type="number" name="amount" required>
+
+    <h3>Withdrawn</h3>
+    <table>
+    <tr><th>AK</th><th>DY</th><th>RK</th><th>NP</th></tr>
+    <tr>
+        <td><input type="number" name="AK" value="0"></td>
+        <td><input type="number" name="DY" value="0"></td>
+        <td><input type="number" name="RK" value="0"></td>
+        <td><input type="number" name="NP" value="0"></td>
+    </tr>
+    </table>
+
+    <button type="submit">Save Entry</button>
+</form>
+</div>
+
+<br>
+<a href="/export"><button>Download Excel</button></a>
+<a href="/receivable"><button>Future Receivable</button></a>
+
+<h2>Records</h2>
+<table>
+<tr>
+<th>Date</th><th>Money From</th><th>Amount</th>
+<th>AK</th><th>DY</th><th>RK</th><th>NP</th>
+<th>Action</th>
+</tr>
+
+{% for r in rows %}
+<tr>
+<td>{{r[1]}}</td>
+<td>{{r[2]}}</td>
+<td>{{r[3]}}</td>
+<td>{{r[4]}}</td>
+<td>{{r[5]}}</td>
+<td>{{r[6]}}</td>
+<td>{{r[7]}}</td>
+<td>
+<a href="/edit/{{r[0]}}">Edit</a> |
+<a href="/delete/{{r[0]}}" onclick="return confirm('Delete entry?')">Delete</a>
+</td>
+</tr>
+{% endfor %}
+</table>
+
+<h2>Summary</h2>
+<p>Total Received: ₹{{total_amount}}</p>
+<p>Equal Share: ₹{{"%.2f"|format(equal)}}</p>
+
+<table>
+<tr><th>Partner</th><th>Total Taken</th><th>Status</th></tr>
+
+{% set names=['AK','DY','RK','NP'] %}
+{% for i in range(4) %}
+<tr>
+<td>{{names[i]}}</td>
+<td>{{totals[i]}}</td>
+<td>
+{% if balances[i] > 0 %}
+Pay Back ₹{{balances[i]}}
+{% elif balances[i] < 0 %}
+Receive ₹{{-balances[i]}}
+{% else %}Settled{% endif %}
+</td>
+</tr>
+{% endfor %}
+</table>
+
+</body>
+</html>

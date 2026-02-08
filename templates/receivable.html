@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Future Receivable</title>
+    <style>
+        body{font-family:Arial;background:#f5f5f5;padding:20px}
+        input{padding:6px;margin:5px}
+        table{border-collapse:collapse;background:white;margin-top:20px}
+        th,td{border:1px solid #ccc;padding:8px;text-align:center}
+        button{padding:8px 12px;margin-top:10px}
+    </style>
+</head>
+<body>
+
+<h2>Future Receivable</h2>
+
+<form method="POST" action="/add_receivable">
+    Date <input type="date" name="date" required><br><br>
+    Party <input type="text" name="party" required><br><br>
+    Amount <input type="number" name="amount" required><br><br>
+    Note <input type="text" name="note"><br><br>
+    <button type="submit">Save</button>
+</form>
+
+<h3>Pending Collection</h3>
+
+<table>
+<tr>
+    <th>Date</th>
+    <th>Party</th>
+    <th>Amount</th>
+    <th>Note</th>
+</tr>
+
+{% for r in rows %}
+<tr>
+    <td>{{ r[1] }}</td>
+    <td>{{ r[2] }}</td>
+    <td>{{ r[3] }}</td>
+    <td>{{ r[4] }}</td>
+</tr>
+{% endfor %}
+
+</table>
+
+<h3>Total Expected Receivable: ₹{{ total_receivable }}</h3>
+
+<br>
+<a href="/">⬅ Back to Ledger</a>
+
+</body>
+</html>

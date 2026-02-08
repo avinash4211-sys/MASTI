@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Partner Ledger</title>
+    <style>
+        body{font-family:Arial;background:#f5f5f5;padding:20px}
+        .box{background:white;padding:15px;border-radius:10px;width:420px}
+        input{width:100%;padding:8px;margin:5px 0}
+        button{padding:10px;background:green;color:white;border:none;width:100%}
+        table{margin-top:20px;border-collapse:collapse;width:100%;background:white}
+        th,td{border:1px solid #ccc;padding:8px;text-align:center}
+    </style>
+</head>
+<body>
+
+<h2>Partner Collection Entry</h2>
+
+<div class="box">
+<form method="POST" action="/add">
+    <label>Date</label>
+    <input type="date" name="date" required>
+
+    <label>Money From</label>
+    <input type="text" name="from" required>
+
+    <label>Total Amount</label>
+    <input type="number" name="amount" required>
+
+    <h3>Withdrawn</h3>
+    <input type="number" name="AK" placeholder="AK" value="0">
+    <input type="number" name="DY" placeholder="DY" value="0">
+    <input type="number" name="RK" placeholder="RK" value="0">
+    <input type="number" name="NP" placeholder="NP" value="0">
+
+    <button type="submit">Save Entry</button>
+</form>
+</div>
+
+<br>
+<a href="/export"><button>Download Excel</button></a>
+
+</body>
+</html>

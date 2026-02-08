@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<h2>Edit Entry</h2>
+
+<form method="POST" action="/update/{{r[0]}}">
+Date <input type="date" name="date" value="{{r[1]}}"><br><br>
+From <input type="text" name="from" value="{{r[2]}}"><br><br>
+Amount <input type="number" name="amount" value="{{r[3]}}"><br><br>
+
+AK <input type="number" name="AK" value="{{r[4]}}"><br>
+DY <input type="number" name="DY" value="{{r[5]}}"><br>
+RK <input type="number" name="RK" value="{{r[6]}}"><br>
+NP <input type="number" name="NP" value="{{r[7]}}"><br><br>
+
+<button type="submit">Update</button>
+</form>
+
+</body>
+</html>
