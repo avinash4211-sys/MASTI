@@ -1,161 +1,123 @@
-# app.py (PostgreSQL version - fixed numeric crash)
-from flask import Flask, render_template, request, redirect, send_file, session
-import pandas as pd
-import os, psycopg2
-from urllib.parse import urlparse
+# ===== app.py (Full working safe version for Render + Postgres) =====
+
+from flask import Flask, render_template, request, redirect, url_for
+import psycopg2, os, logging, sys, traceback
+
+# ---------- LOGGING (shows real errors in Render logs) ----------
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
 
 app = Flask(__name__)
-app.secret_key = "mysecretkey123"
 
-# ---------- DB CONNECTION ----------
-DATABASE_URL = os.environ.get("DATABASE_URL")
+# ---------- DATABASE ----------
 
-def get_conn():
-    url = urlparse(DATABASE_URL)
-    return psycopg2.connect(
-        host=url.hostname,
-        database=url.path[1:],
-        user=url.username,
-        password=url.password,
-        port=url.port
-    )
+def get_db():
+    return psycopg2.connect(os.environ["DATABASE_URL"], sslmode="require")
 
-# ---------- INIT DB ----------
+# Safe number converter (prevents blank page crashes)
+
+def num(v):
+    try:
+        return float(v or 0)
+    except:
+        return 0
+
+# ---------- INIT TABLE ----------
 
 def init_db():
-    conn=get_conn()
-    cur=conn.cursor()
+    conn = get_db()
+    cur = conn.cursor()
 
-    cur.execute('''CREATE TABLE IF NOT EXISTS records(
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS ledger(
         id SERIAL PRIMARY KEY,
-        date TEXT,
-        money_from TEXT,
-        amount FLOAT,
-        AK FLOAT,
-        DY FLOAT,
-        RK FLOAT,
-        NP FLOAT
-    )''')
+        name TEXT,
+        credit NUMERIC,
+        debit NUMERIC
+    )
+    """)
 
-    cur.execute('''CREATE TABLE IF NOT EXISTS receivable(
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS receivable(
         id SERIAL PRIMARY KEY,
-        date TEXT,
-        party TEXT,
-        amount FLOAT,
-        note TEXT
-    )''')
+        name TEXT,
+        amount NUMERIC
+    )
+    """)
 
     conn.commit()
+    cur.close()
     conn.close()
 
 init_db()
 
-# ---------- LOGIN ----------
-USER = "admin"
-PASS = "1234"
-
-@app.route('/login', methods=['GET','POST'])
-def login():
-    if request.method == 'POST':
-        if request.form['username']==USER and request.form['password']==PASS:
-            session['user']='ok'
-            return redirect('/')
-        else:
-            return render_template('login.html', error="Invalid Login")
-    return render_template('login.html')
-
-@app.route('/logout')
-def logout():
-    session.pop('user',None)
-    return redirect('/login')
-
-# ---------- MAIN ----------
+# ---------- HOME ----------
 @app.route('/')
 def index():
-    if 'user' not in session: return redirect('/login')
+    conn = get_db()
+    cur = conn.cursor()
 
-    conn=get_conn(); cur=conn.cursor()
-    cur.execute("SELECT * FROM records ORDER BY id DESC")
-    rows=cur.fetchall()
+    cur.execute("SELECT name, credit, debit FROM ledger ORDER BY id DESC")
+    rows = cur.fetchall()
 
-    def num(v):
-        try: return float(v or 0)
-        except: return 0
+    total = 0
+    for r in rows:
+        total += num(r[1]) - num(r[2])
 
-    total_amount=sum(num(r[3]) for r in rows)
-    totals=[sum(num(r[i]) for r in rows) for i in range(4,8)]
-    equal= total_amount/4 if total_amount else 0
-    balances=[round(t-equal,2) for t in totals]
-
+    cur.close()
     conn.close()
-    return render_template('index.html', rows=rows, total_amount=total_amount, totals=totals, equal=equal, balances=balances)
+    return f"Total Balance: {total}"
 
+# ---------- ADD ENTRY ----------
 @app.route('/add', methods=['POST'])
 def add():
-    if 'user' not in session: return redirect('/login')
-    d=request.form
-    conn=get_conn(); cur=conn.cursor()
-    cur.execute("INSERT INTO records(date,money_from,amount,AK,DY,RK,NP) VALUES(%s,%s,%s,%s,%s,%s,%s)",
-                 (d['date'],d['from'],d['amount'],d['AK'],d['DY'],d['RK'],d['NP']))
-    conn.commit(); conn.close()
-    return redirect('/')
+    name = request.form.get('name')
+    credit = num(request.form.get('credit'))
+    debit = num(request.form.get('debit'))
 
-@app.route('/edit/<int:id>')
-def edit(id):
-    if 'user' not in session: return redirect('/login')
-    conn=get_conn(); cur=conn.cursor()
-    cur.execute("SELECT * FROM records WHERE id=%s", (id,))
-    row=cur.fetchone(); conn.close()
-    return render_template('edit.html', r=row)
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("INSERT INTO ledger(name, credit, debit) VALUES(%s,%s,%s)", (name, credit, debit))
+    conn.commit()
+    cur.close()
+    conn.close()
 
-@app.route('/update/<int:id>', methods=['POST'])
-def update(id):
-    if 'user' not in session: return redirect('/login')
-    d=request.form
-    conn=get_conn(); cur=conn.cursor()
-    cur.execute("""UPDATE records SET date=%s,money_from=%s,amount=%s,AK=%s,DY=%s,RK=%s,NP=%s WHERE id=%s""",
-                (d['date'],d['from'],d['amount'],d['AK'],d['DY'],d['RK'],d['NP'],id))
-    conn.commit(); conn.close()
-    return redirect('/')
-
-@app.route('/delete/<int:id>')
-def delete(id):
-    if 'user' not in session: return redirect('/login')
-    conn=get_conn(); cur=conn.cursor()
-    cur.execute("DELETE FROM records WHERE id=%s", (id,))
-    conn.commit(); conn.close()
-    return redirect('/')
+    return redirect(url_for('index'))
 
 # ---------- RECEIVABLE ----------
 @app.route('/receivable')
-def receivable():
-    if 'user' not in session: return redirect('/login')
-    conn=get_conn(); cur=conn.cursor()
-    cur.execute("SELECT * FROM receivable ORDER BY id DESC")
-    rows=cur.fetchall()
-    total_receivable=sum(float(r[3] or 0) for r in rows)
+def receivable_page():
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT name, amount FROM receivable")
+    rows = cur.fetchall()
+
+    total = sum(num(r[1]) for r in rows)
+
+    cur.close()
     conn.close()
-    return render_template('receivable.html', rows=rows, total_receivable=total_receivable)
+    return f"Total Expected Receivable: {total}"
 
 @app.route('/add_receivable', methods=['POST'])
 def add_receivable():
-    if 'user' not in session: return redirect('/login')
-    d=request.form
-    conn=get_conn(); cur=conn.cursor()
-    cur.execute("INSERT INTO receivable(date,party,amount,note) VALUES(%s,%s,%s,%s)",(d['date'],d['party'],d['amount'],d['note']))
-    conn.commit(); conn.close()
-    return redirect('/receivable')
+    name = request.form.get('name')
+    amount = num(request.form.get('amount'))
 
-# ---------- EXPORT ----------
-@app.route('/export')
-def export():
-    if 'user' not in session: return redirect('/login')
-    conn=get_conn()
-    df=pd.read_sql_query("SELECT date,money_from,amount,AK,DY,RK,NP,(AK+DY+RK+NP) as total_taken FROM records",conn)
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("INSERT INTO receivable(name, amount) VALUES(%s,%s)", (name, amount))
+    conn.commit()
+    cur.close()
     conn.close()
-    file='export.xlsx'
-    df.to_excel(file,index=False)
-    return send_file(file,as_attachment=True)
+    return redirect(url_for('receivable_page'))
 
-if __name__=='__main__':
-    app.run(debug=True)
+# ---------- GLOBAL ERROR HANDLER ----------
+@app.errorhandler(Exception)
+def handle_exception(e):
+    print("\n\n===== APP CRASH =====")
+    traceback.print_exc()
+    print("=====================\n\n")
+    return "Server Error — check Render logs", 500
